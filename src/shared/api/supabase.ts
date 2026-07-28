@@ -85,3 +85,37 @@ export async function getSavedLooks(limit = 20) {
   if (error) throw error;
   return data as SavedLook[];
 }
+
+/**
+ * Uploads a local image URI (from expo-image-picker) to the `user-photos`
+ * bucket and returns a public URL. YouCam's task API requires a publicly
+ * reachable src_file_url, so this step is required before any VTO call.
+ */
+export async function uploadUserPhoto(fileUri: string): Promise<string> {
+  // Convert local file URI -> blob (RN fetch supports file:// URIs directly)
+  const response = await fetch(fileUri);
+  const blob = await response.blob();
+
+  const extension = fileUri.split(".").pop()?.toLowerCase() ?? "jpg";
+  const contentType = extension === "png" ? "image/png" : "image/jpeg";
+  const fileName = `photo_${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("user-photos")
+    .upload(fileName, blob, {
+      contentType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Photo upload failed: ${uploadError.message}`);
+  }
+
+  const { data } = supabase.storage.from("user-photos").getPublicUrl(fileName);
+
+  if (!data?.publicUrl) {
+    throw new Error("Upload succeeded but no public URL was returned.");
+  }
+
+  return data.publicUrl;
+}
