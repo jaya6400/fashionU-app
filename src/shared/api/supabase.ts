@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system/legacy";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -92,17 +94,18 @@ export async function getSavedLooks(limit = 20) {
  * reachable src_file_url, so this step is required before any VTO call.
  */
 export async function uploadUserPhoto(fileUri: string): Promise<string> {
-  // Convert local file URI -> blob (RN fetch supports file:// URIs directly)
-  const response = await fetch(fileUri);
-  const blob = await response.blob();
-
   const extension = fileUri.split(".").pop()?.toLowerCase() ?? "jpg";
   const contentType = extension === "png" ? "image/png" : "image/jpeg";
   const fileName = `photo_${Date.now()}.${extension}`;
 
+  // Read the file directly as base64 — avoids fetch()/blob() entirely
+  const base64 = await FileSystem.readAsStringAsync(fileUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
   const { error: uploadError } = await supabase.storage
     .from("user-photos")
-    .upload(fileName, blob, {
+    .upload(fileName, decode(base64), {
       contentType,
       upsert: false,
     });
