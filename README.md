@@ -1,50 +1,108 @@
-# Welcome to your Expo app 👋
+# FashionU
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+AI-powered styling decision assistant — built for the YouCam API
+Skin AI & Apparel VTO Hackathon.
 
-## Get started
+FashionU helps people compare outfit options with AI-generated styling
+insight, not just a try-on render. Upload a photo, try on outfits via
+YouCam's virtual try-on, and get positive, confidence-framed styling
+advice tailored to your self-reported body shape and occasion.
 
-1. Install dependencies
+## Status
 
-   ```bash
-   npm install
-   ```
+🚧 Active hackathon development. Deadline: **August 17, 2026**.
 
-2. Start the app
+Core AI pipeline (Gemini Vision + Groq styling insights + Supabase
+persistence) and onboarding flow are working end-to-end. YouCam
+Apparel VTO is integrated as a standalone client and verified working
+via test script, but not yet wired into the app's screen flow — see
+`AGENTS.md` for the detailed current status and next steps.
 
-   ```bash
-   npx expo start
-   ```
+## Tech stack
 
-In the output, you'll find options to open the app in a
+- **Framework**: Expo (SDK 54), Expo Router, TypeScript (strict mode)
+- **State**: React state + AsyncStorage (no auth — hackathon MVP scope)
+- **Backend**: Supabase (Postgres + pgvector for semantic similarity)
+- **AI**:
+  - Gemini (`gemini-3.5-flash`) — outfit image analysis
+  - Gemini (`gemini-embedding-001`) — text embeddings for similarity search
+  - Groq (`llama-3.3-70b-versatile`) — styling insight generation, with
+    Gemini fallback
+- **Virtual Try-On**: YouCam API (Perfect Corp) — Apparel VTO
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Getting started
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Prerequisites
 
-## Get a fresh project
+- Node.js 18+
+- Expo Go app (for testing on device) or an Android/iOS simulator
 
-When you're ready, run:
+### Setup
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Create a `.env` file with:
 
-## Learn more
+```ini
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+EXPO_PUBLIC_GEMINI_API_KEY=
+EXPO_PUBLIC_GROQ_API_KEY=
+EXPO_PUBLIC_YOUCAM_API_KEY=
+EXPO_PUBLIC_EMBEDDING_MODEL=gemini-embedding-001
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Run the Supabase migrations in `supabase/migrations/` (or the SQL
+editor, in order).
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Before running the application for the first time, you must apply the database migrations:
 
-## Join the community
+1. Ensure the Supabase CLI is installed and your local stack is running:
 
-Join our community of developers creating universal apps.
+```bash
+supabase start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+2. Run the migrations to build your schema:
+
+```bash
+supabase db reset
+```
+
+### Run
+
+```bash
+npx expo start -c
+```
+
+Scan the QR code with Expo Go, or press `a`/`i` for a simulator.
+
+### Test API clients standalone (without the RN app)
+
+```bash
+npx tsx src/shared/api/test-apis.ts
+```
+
+Useful for isolating third-party API issues (auth, endpoint, payload
+shape) from React Native environment quirks.
+
+## Project structure
+
+See `AGENTS.md` for the full folder structure, data model, and
+detailed build conventions — it's kept up to date as the source of
+truth for both human and AI contributors on this project.
+
+## Product principles
+
+- Body shape is always self-reported (short quiz), never inferred from
+  photos — proportion-based categories only (hourglass, rectangle,
+  triangle/pear, inverted triangle, oval), no size/weight language.
+- All styling copy is positive and confidence-framed.
+- The styling-insight comparison screen is the core product
+  differentiator — prioritized over catalogue breadth.
+
+## License
+
+MIT.

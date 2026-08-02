@@ -6,6 +6,7 @@ import {
   shadows,
   spacing,
 } from "@/constants/theme";
+import { uploadPhotoToStorage } from "@/shared/api/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -80,10 +81,17 @@ export default function PhotoUploadScreen() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!imageUri) return;
 
     setIsProcessing(true);
+    try {
+      console.log("Testing upload with:", imageUri);
+      const publicUrl = await uploadPhotoToStorage(imageUri);
+      console.log("✅ Uploaded! Public URL:", publicUrl);
+    } catch (err) {
+      console.error("❌ Upload test failed:", err);
+    }
     setTimeout(() => {
       setIsProcessing(false);
       router.push({

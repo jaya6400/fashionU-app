@@ -1,32 +1,59 @@
-# Claude Code / Claude-specific notes
+# Claude Code / AI Agent Instructions
 
-See AGENTS.md for full project context — that file is the source of
-truth for stack, folder structure, design tokens, and product rules.
-This file adds Claude-specific working notes.
+This file is Claude-specific context that supplements AGENTS.md.
+**Read AGENTS.md first** — it has the authoritative product rules,
+tech stack, schema, and current status. This file only adds
+Claude-specific working notes.
 
-## Priorities when generating code
+## Session conventions
 
-1. Correctness of the vertical slice over premature abstraction —
-   this is a 16-day hackathon build, not a production app.
-2. Match existing patterns in src/shared/api/\*.ts before introducing
-   new patterns for API calls.
-3. Strict TypeScript — no `any` unless genuinely unavoidable, and
-   comment why if used.
-4. Every screen needs a loading state and an error state — judges
-   will see this live, a blank screen on API failure is a bad look.
+- This project is under active hackathon development with a hard
+  deadline of Aug 17, 2026. Prioritize working code over ideal
+  architecture. Flag tech debt in comments rather than blocking on it.
+- Before touching any third-party API client (`gemini.ts`, `groq.ts`,
+  `supabase.ts`, `youcam.ts`), check AGENTS.md's "Verified
+  integrations" and "Known SDK 54 gotchas" sections first — several
+  bugs in this project came from assuming stale API/SDK behavior
+  instead of checking current docs.
+- When a model name, API endpoint, or library version is uncertain,
+  search for current info rather than relying on training data. This
+  project has hit multiple issues from outdated assumptions (Gemini
+  model naming, expo-file-system SDK 54 restructuring, YouCam API
+  version differences).
+- Don't assume a fix is correct without the person confirming a real
+  run — this project's bugs have repeatedly been in the gap between
+  "looks right" and "actually tested," especially around async
+  AsyncStorage timing, RN's fetch/blob bridge, and third-party API
+  auth schemes.
 
-## Things NOT to do
+## Testing conventions
 
-- Don't add authentication/login flows.
-- Don't scaffold a custom backend server — Supabase handles this.
-- Don't invent new color values outside the theme.ts tokens.
-- Don't write styling advice copy that references body size/weight.
-- Don't call Groq or Gemini directly from components — always go
-  through src/shared/api/ wrapper functions so rate-limit/fallback
-  logic stays centralized.
+- Standalone API testing (outside the RN app) uses
+  `src/shared/api/test-apis.ts`, run via `npx tsx src/shared/api/test-apis.ts`
+  — NOT plain `node`, which has stricter ESM resolution than this
+  project's import style assumes.
+- In-app debugging relies heavily on `console.log` at data-flow
+  boundaries (AsyncStorage reads, API response bodies before parsing,
+  route param resolution) — this has been the most reliable way to
+  isolate bugs in this codebase so far, more than guessing from error
+  messages alone.
 
-## Current build status
+## Things NOT to re-litigate
 
-(Update this section as you go so agents piggybacking on later
-sessions know where things stand — e.g. "onboarding + photo upload
-done, VTO integration in progress")
+- `ImagePicker.MediaTypeOptions.Images` shows a deprecation warning
+  but works — confirmed via direct testing. Don't "fix" this again.
+- `expo-file-system/legacy` is the correct import for
+  `readAsStringAsync`/`EncodingType` in SDK 54 — this is Expo's
+  intended migration path, not a workaround to revisit.
+- YouCam's `cloth-v3` endpoint (`s2s/v2.0/task/cloth-v3`) is confirmed
+  correct for this account/API key via a live successful test run
+  with a real task_id and result image. Don't second-guess this
+  against documentation that may describe a different API version.
+
+## Open questions for the person, not to be assumed
+
+- Garment catalogue approach (hardcoded placeholder vs. deferred)
+- Whether VTO result images get re-hosted to Supabase Storage before
+  persisting to `saved_looks` (needed — presigned URLs expire in ~2hrs)
+- Default `category` value for YouCam requests when not derivable
+  from garment metadata
