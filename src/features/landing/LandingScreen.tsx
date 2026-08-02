@@ -86,7 +86,7 @@ export default function LandingScreen() {
   }, [pulseAnim, fadeAnims, slideAnims]);
 
   const handleGetStarted = () => {
-    router.push("/photo-upload");
+    router.push("/body-shape-quiz");
   };
 
   return (

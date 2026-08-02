@@ -13,14 +13,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * Save a styled look to Supabase with embedding for semantic search
  */
 export async function saveLook({
-  imageUri,
-  description,
+  outfitId,
+  vtoImageUrl,
+  stylingInsight,
   embedding,
   bodyShape,
   occasion,
 }: {
-  imageUri: string;
-  description: string;
+  outfitId: string;
+  vtoImageUrl?: string;
+  stylingInsight: string;
   embedding: number[];
   bodyShape?: string;
   occasion?: string;
@@ -28,8 +30,9 @@ export async function saveLook({
   const { data, error } = await supabase
     .from("saved_looks")
     .insert({
-      image_uri: imageUri,
-      description,
+      outfit_id: outfitId,
+      vto_image_url: vtoImageUrl,
+      styling_insight: stylingInsight,
       embedding,
       body_shape: bodyShape,
       occasion,

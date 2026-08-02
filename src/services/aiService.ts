@@ -1,6 +1,7 @@
-import { analyzeOutfitImage, generateEmbedding } from "@/api/gemini";
-import { generateStylingInsightWithFallback } from "@/api/groq";
-import { saveLook } from "@/api/supabase";
+import { analyzeOutfitImage, generateEmbedding } from "@/shared/api/gemini";
+import { generateStylingInsightWithFallback } from "@/shared/api/groq";
+import { saveLook } from "@/shared/api/supabase";
+import * as Crypto from "expo-crypto";
 
 export interface AnalysisResult {
   styleVerdict: string;
@@ -44,8 +45,9 @@ export async function analyzeOutfit(
     // Step 4: Optionally save to Supabase
     if (options?.saveToDatabase) {
       await saveLook({
-        imageUri,
-        description: imageAnalysis.description,
+        outfitId: options.outfitId ?? Crypto.randomUUID(), // you need a real outfit id source here
+        vtoImageUrl: imageUri,
+        stylingInsight: imageAnalysis.description,
         embedding,
         bodyShape: options.bodyShape,
         occasion: options.occasion,

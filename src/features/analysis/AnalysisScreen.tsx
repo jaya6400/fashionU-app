@@ -8,6 +8,7 @@ import {
 } from "@/constants/theme";
 import { AnalysisResult, analyzeOutfit } from "@/services/aiService";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -36,7 +37,35 @@ export default function AnalysisScreen() {
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Body shape isn't passed as a route param anywhere in the flow —
+  // it's set once in the quiz and persisted to AsyncStorage. Read it
+  // back here so it actually reaches the AI call and the Supabase save.
+  const [storedBodyShape, setStoredBodyShape] = useState<string | null>(null);
+  const [storedOccasion, setStoredOccasion] = useState<string | null>(null);
+  const [hasLoadedStoredShape, setHasLoadedStoredShape] = useState(false);
+
   useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem("userBodyShape")
+      .then((value) => {
+        if (isMounted) setStoredBodyShape(value);
+      })
+      .catch((err) => {
+        console.warn("Failed to read stored body shape:", err);
+      })
+      .finally(() => {
+        if (isMounted) setHasLoadedStoredShape(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Wait for the AsyncStorage read to finish before firing analysis,
+    // otherwise this races and bodyShape ends up undefined on first run.
+    if (!hasLoadedStoredShape) return;
+
     const runAnalysis = async () => {
       if (!decodedImageUri) {
         setError("No image provided");
@@ -44,10 +73,13 @@ export default function AnalysisScreen() {
         return;
       }
 
+      const effectiveBodyShape = bodyShape ?? storedBodyShape ?? undefined;
+      const effectiveOccasion = occasion ?? storedOccasion ?? undefined;
+
       try {
         const analysisResult = await analyzeOutfit(decodedImageUri, {
-          bodyShape: bodyShape,
-          occasion: occasion,
+          bodyShape: effectiveBodyShape,
+          occasion: effectiveOccasion,
           saveToDatabase: true,
         });
         setResult(analysisResult);
@@ -60,7 +92,35 @@ export default function AnalysisScreen() {
     };
 
     runAnalysis();
-  }, [decodedImageUri, bodyShape, occasion]);
+  }, [
+    decodedImageUri,
+    bodyShape,
+    occasion,
+    storedBodyShape,
+    hasLoadedStoredShape,
+  ]);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      AsyncStorage.getItem("userBodyShape"),
+      AsyncStorage.getItem("userOccasion"),
+    ])
+      .then(([shape, occ]) => {
+        console.log("Read from storage — bodyShape:", shape, "occasion:", occ);
+        if (isMounted) {
+          setStoredBodyShape(shape);
+          setStoredOccasion(occ);
+        }
+      })
+      .catch((err) => console.warn("Failed to read stored preferences:", err))
+      .finally(() => {
+        if (isMounted) setHasLoadedStoredShape(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleTryAnother = () => {
     router.replace("/photo-upload");

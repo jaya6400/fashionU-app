@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
@@ -9,13 +9,20 @@ if (!API_KEY) {
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 /**
- * Generate embeddings for text using Gemini text-embedding-004
+ * Generate embeddings for text using Gemini gemini-embedding-001
  * Used for semantic search in Supabase pgvector
  */
+const EMBEDDING_MODEL =
+  process.env.EXPO_PUBLIC_EMBEDDING_MODEL || "gemini-embedding-001";
+
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-    const result = await model.embedContent(text);
+    const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
+    const result = await model.embedContent({
+      content: { parts: [{ text }], role: "user" },
+      taskType: TaskType.RETRIEVAL_DOCUMENT,
+      outputDimensionality: 3072,
+    });
     const embedding = result.embedding.values;
 
     if (!embedding) {
@@ -41,7 +48,10 @@ export async function analyzeOutfitImage(imageUri: string): Promise<{
 }> {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-3.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     });
 
     // Convert image URI to base64 for Gemini Vision
@@ -73,8 +83,24 @@ export async function analyzeOutfitImage(imageUri: string): Promise<{
       prompt,
     ]);
 
+    const candidate = result.response.candidates?.[0];
+    console.log("Finish reason:", candidate?.finishReason);
+    console.log(
+      "Prompt feedback:",
+      JSON.stringify(result.response.promptFeedback),
+    );
+
     const responseText = result.response.text();
-    const parsed = JSON.parse(responseText);
+    console.log("Raw response text:", JSON.stringify(responseText));
+
+    if (!responseText || responseText.trim().length === 0) {
+      throw new Error(
+        `Empty response from Gemini. Finish reason: ${candidate?.finishReason ?? "unknown"}`,
+      );
+    }
+
+    const cleaned = responseText.replace(/```json\s*|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
 
     return {
       description: parsed.description,
