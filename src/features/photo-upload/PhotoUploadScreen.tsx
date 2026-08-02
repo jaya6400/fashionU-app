@@ -1,127 +1,160 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
 import {
   borderRadius,
   colors,
   fontSize,
   fontWeight,
+  shadows,
   spacing,
-} from "../../constants/theme";
-import { uploadUserPhoto } from "../../shared/api/supabase";
-
-// NOTE: token names (colors/spacing/borderRadius/fontSize/fontWeight) match
-// your current theme.ts per the handoff doc. If a name differs, adjust the
-// import + usages below — everything else is independent of that shape.
+} from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function PhotoUploadScreen() {
   const router = useRouter();
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Sorry, we need camera roll permissions to let you upload photos.",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const requestCameraPermissions = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Sorry, we need camera permissions to take a new photo.",
+      );
+      return false;
+    }
+    return true;
+  };
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Please allow photo library access to continue.",
-      );
-      return;
-    }
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [3, 4], // portrait — best fit for full-body VTO
+      aspect: [3, 4],
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       setImageUri(result.assets[0].uri);
     }
   };
 
-  const handleContinue = async () => {
-    if (!imageUri) return;
+  const takePhoto = async () => {
+    const hasPermission = await requestCameraPermissions();
+    if (!hasPermission) return;
 
-    setIsUploading(true);
-    try {
-      const publicUrl = await uploadUserPhoto(imageUri);
-      await AsyncStorage.setItem("userPhotoUrl", publicUrl);
-      router.push("/body-shape-quiz");
-    } catch (err) {
-      Alert.alert(
-        "Upload failed",
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setIsUploading(false);
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setImageUri(result.assets[0].uri);
     }
   };
 
+  const handleContinue = () => {
+    if (!imageUri) return;
+
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      router.push({
+        pathname: "/analysis",
+        params: { imageUri: encodeURIComponent(imageUri) },
+      });
+    }, 800);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Add your photo</Text>
-      <Text style={styles.subtitle}>
-        A full-length, front-facing photo works best for accurate try-on
-        results.
-      </Text>
-
-      <TouchableOpacity
-        style={styles.imagePicker}
-        onPress={pickImage}
-        activeOpacity={0.85}
-        disabled={isUploading}
-      >
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} />
-        ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>Tap to choose a photo</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {imageUri && (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={pickImage}
-          disabled={isUploading}
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.secondaryButtonText}>
-            Choose a different photo
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Upload Photo</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.previewContainer}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.previewImage} />
+          ) : (
+            <View style={styles.placeholderContainer}>
+              <Ionicons name="image-outline" size={64} color={colors.accent} />
+              <Text style={styles.placeholderText}>No photo selected yet</Text>
+              <Text style={styles.placeholderSubtext}>
+                Upload a clear, well-lit photo for the best AI results
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryButton]}
+            onPress={takePhoto}
+          >
+            <Ionicons name="camera" size={20} color={colors.primaryDark} />
+            <Text style={styles.secondaryButtonText}>Take Photo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
+            onPress={pickImage}
+          >
+            <Ionicons name="images" size={20} color={colors.white} />
+            <Text style={styles.primaryButtonText}>Choose from Library</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            !imageUri ? styles.disabledButton : null,
+          ]}
+          onPress={handleContinue}
+          disabled={!imageUri || isProcessing}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.continueButtonText}>
+            {isProcessing ? "Preparing..." : "Analyze Outfit"}
           </Text>
         </TouchableOpacity>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.continueButton,
-          (!imageUri || isUploading) && styles.continueButtonDisabled,
-        ]}
-        onPress={handleContinue}
-        disabled={!imageUri || isUploading}
-        activeOpacity={0.85}
-      >
-        {isUploading ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.continueButtonText}>Continue</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -129,69 +162,113 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    padding: spacing.xs,
+  },
+  headerTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary,
+  },
+  content: {
+    flex: 1,
     padding: spacing.lg,
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
-  title: {
-    fontSize: fontSize.h1 ?? 28,
-    fontWeight: fontWeight.bold ?? "700",
-    color: colors.primaryDark ?? colors.primary,
-    marginBottom: spacing.sm,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: fontSize.body ?? 16,
-    color: colors.textSecondary,
-    marginBottom: spacing.xl,
-    textAlign: "center",
-  },
-  imagePicker: {
-    alignSelf: "center",
-    width: 240,
-    aspectRatio: 3 / 4,
-    borderRadius: borderRadius.lg ?? 20,
-    overflow: "hidden",
+  previewContainer: {
+    flex: 1,
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing.md,
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    marginVertical: spacing.xl,
   },
   previewImage: {
     width: "100%",
     height: "100%",
+    resizeMode: "cover",
   },
-  placeholder: {
-    flex: 1,
-    backgroundColor: colors.secondary,
+  placeholderContainer: {
     alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   placeholderText: {
-    color: colors.primaryDark ?? colors.primary,
-    fontSize: fontSize.body ?? 16,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.primaryDark,
+    marginTop: spacing.md,
+  },
+  placeholderSubtext: {
+    fontSize: fontSize.bodySmall,
+    fontWeight: fontWeight.regular,
+    color: colors.textSecondary,
     textAlign: "center",
+    marginTop: spacing.sm,
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.lg,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  primaryButton: {
+    backgroundColor: colors.primary,
+    marginLeft: spacing.sm,
+    ...shadows.sm,
   },
   secondaryButton: {
-    alignSelf: "center",
-    marginBottom: spacing.xl,
+    backgroundColor: colors.secondary,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginRight: spacing.sm,
+  },
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: fontSize.button,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing.xs,
   },
   secondaryButtonText: {
-    color: colors.primary,
-    fontSize: fontSize.bodySmall ?? 14,
-    textDecorationLine: "underline",
+    color: colors.primaryDark,
+    fontSize: fontSize.button,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing.xs,
   },
   continueButton: {
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
-    borderRadius: borderRadius.md ?? 12,
+    borderRadius: borderRadius.lg,
     alignItems: "center",
+    ...shadows.md,
   },
-  continueButtonDisabled: {
+  disabledButton: {
     backgroundColor: colors.border,
+    ...shadows.sm,
   },
   continueButtonText: {
     color: colors.white,
-    fontSize: fontSize.button ?? 16,
-    fontWeight: fontWeight.semiBold ?? "600",
+    fontSize: fontSize.button,
+    fontWeight: fontWeight.bold,
   },
 });
