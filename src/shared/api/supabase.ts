@@ -1,124 +1,94 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
-import { decode } from "base64-arraybuffer";
-import * as FileSystem from "expo-file-system/legacy";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables");
+  throw new Error("Supabase credentials not defined in .env");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Type definitions for your tables
-export interface StylingRule {
-  id: string;
-  body_shape:
-    | "hourglass"
-    | "rectangle"
-    | "triangle"
-    | "inverted_triangle"
-    | "oval";
-  occasion: string;
-  category: string;
-  rule_text: string;
-  embedding?: number[];
-  created_at: string;
-}
-
-export interface SavedLook {
-  id: string;
-  outfit_id: string;
-  body_shape: string;
-  occasion: string;
-  vto_image_url?: string;
-  styling_insight?: string;
-  embedding?: number[];
-  created_at: string;
-}
-
-// Helper: vector similarity search
-export async function searchStylingRules(
-  queryEmbedding: number[],
-  bodyShape: string,
-  occasion: string,
-  limit = 5,
-) {
-  const { data, error } = await supabase.rpc("match_styling_rules", {
-    query_embedding: queryEmbedding,
-    match_body_shape: bodyShape,
-    match_occasion: occasion,
-    match_count: limit,
-  });
-
-  if (error) throw error;
-  return data as StylingRule[];
-}
-
-// Save a favorited look
-export async function saveLook(look: Omit<SavedLook, "id" | "created_at">) {
+/**
+ * Save a styled look to Supabase with embedding for semantic search
+ */
+export async function saveLook({
+  imageUri,
+  description,
+  embedding,
+  bodyShape,
+  occasion,
+}: {
+  imageUri: string;
+  description: string;
+  embedding: number[];
+  bodyShape?: string;
+  occasion?: string;
+}) {
   const { data, error } = await supabase
     .from("saved_looks")
-    .insert([look])
+    .insert({
+      image_uri: imageUri,
+      description,
+      embedding,
+      body_shape: bodyShape,
+      occasion,
+      created_at: new Date().toISOString(),
+    })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Supabase save error:", error);
+    throw error;
+  }
+
   return data;
 }
 
-// Get user's saved looks
-export async function getSavedLooks(limit = 20) {
-  const { data, error } = await supabase
-    .from("saved_looks")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+/**
+ * Find similar looks using pgvector cosine similarity
+ */
+export async function findSimilarLooks(embedding: number[], limit: number = 5) {
+  const { data, error } = await supabase.rpc("match_saved_looks", {
+    query_embedding: embedding,
+    match_count: limit,
+  });
 
-  if (error) throw error;
-  return data as SavedLook[];
+  if (error) {
+    console.error("Supabase similarity search error:", error);
+    throw error;
+  }
+
+  return data;
 }
 
 /**
- * Uploads a local image URI (from expo-image-picker) to the `user-photos`
- * bucket and returns a public URL. YouCam's task API requires a publicly
- * reachable src_file_url, so this step is required before any VTO call.
+ * Get styling rules from database based on body shape and occasion
  */
-export async function uploadUserPhoto(fileUri: string): Promise<string> {
-  const extension = fileUri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const contentType = extension === "png" ? "image/png" : "image/jpeg";
-  const fileName = `photo_${Date.now()}.${extension}`;
+export async function getStylingRules({
+  bodyShape,
+  occasion,
+}: {
+  bodyShape?: string;
+  occasion?: string;
+}) {
+  let query = supabase.from("styling_rules").select("*");
 
-  // Read the file directly as base64 — avoids fetch()/blob() entirely
-  const base64 = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const { error: uploadError } = await supabase.storage
-    .from("user-photos")
-    .upload(fileName, decode(base64), {
-      contentType,
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw new Error(`Photo upload failed: ${uploadError.message}`);
+  if (bodyShape) {
+    query = query.eq("body_shape", bodyShape);
   }
 
-  const { data } = supabase.storage.from("user-photos").getPublicUrl(fileName);
-
-  if (!data?.publicUrl) {
-    throw new Error("Upload succeeded but no public URL was returned.");
+  if (occasion) {
+    query = query.eq("occasion", occasion);
   }
 
-  return data.publicUrl;
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Supabase styling rules error:", error);
+    throw error;
+  }
+
+  return data;
 }

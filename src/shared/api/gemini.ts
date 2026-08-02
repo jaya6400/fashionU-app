@@ -1,47 +1,89 @@
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const EMBEDDING_MODEL =
-  process.env.EXPO_PUBLIC_EMBEDDING_MODEL || "gemini-embedding-001";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const EMBEDDING_DIMENSIONS = 3072;
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-export async function getEmbedding(text: string): Promise<number[]> {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Missing Gemini API Key");
+if (!API_KEY) {
+  throw new Error("EXPO_PUBLIC_GEMINI_API_KEY is not defined in .env");
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+/**
+ * Generate embeddings for text using Gemini text-embedding-004
+ * Used for semantic search in Supabase pgvector
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  try {
+    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const result = await model.embedContent(text);
+    const embedding = result.embedding.values;
+
+    if (!embedding) {
+      throw new Error("No embedding returned from Gemini API");
+    }
+
+    return embedding;
+  } catch (error) {
+    console.error("Gemini embedding error:", error);
+    throw new Error("Failed to generate embedding");
   }
+}
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: `models/${EMBEDDING_MODEL}`,
-        content: {
-          parts: [{ text }],
+/**
+ * Analyze outfit image and extract styling attributes
+ * Using Gemini Vision for image understanding
+ */
+export async function analyzeOutfitImage(imageUri: string): Promise<{
+  description: string;
+  colors: string[];
+  style: string;
+  occasion: string[];
+}> {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-latest",
+    });
+
+    // Convert image URI to base64 for Gemini Vision
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+    const imageData = base64.split(",")[1]; // Remove data:image/...;base64, prefix
+
+    const prompt = `Analyze this outfit image and provide:
+    1. A detailed description of the clothing items
+    2. The dominant colors
+    3. The overall style (e.g., casual, formal, bohemian, minimalist)
+    4. Suitable occasions
+    
+    Return as JSON with keys: description, colors (array), style, occasion (array)`;
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: imageData,
+          mimeType: "image/jpeg",
         },
-      }),
-    },
-  );
+      },
+      prompt,
+    ]);
 
-  if (!response.ok) {
-    throw new Error(`Gemini Embedding failed: ${await response.text()}`);
+    const responseText = result.response.text();
+    const parsed = JSON.parse(responseText);
+
+    return {
+      description: parsed.description,
+      colors: parsed.colors,
+      style: parsed.style,
+      occasion: parsed.occasion,
+    };
+  } catch (error) {
+    console.error("Gemini Vision analysis error:", error);
+    throw new Error("Failed to analyze outfit image");
   }
-
-  const data = await response.json();
-
-  const embedding = data.embedding?.values;
-
-  if (!Array.isArray(embedding)) {
-    throw new Error("No embedding returned from Gemini.");
-  }
-
-  if (embedding.length !== EMBEDDING_DIMENSIONS) {
-    throw new Error(
-      `Expected ${EMBEDDING_DIMENSIONS} dimensions, got ${embedding.length}`,
-    );
-  }
-
-  return embedding;
 }
