@@ -7,6 +7,11 @@ import {
   spacing,
 } from "@/constants/theme";
 import { AnalysisResult, analyzeOutfit } from "@/services/aiService";
+import {
+  rehostImageToStorage,
+  uploadPhotoToStorage,
+} from "@/shared/api/supabase";
+import { requestVirtualTryOn } from "@/shared/api/youcam";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,83 +27,44 @@ import {
   View,
 } from "react-native";
 
+type Stage =
+  | "loading-prefs"
+  | "uploading"
+  | "vto"
+  | "analyzing"
+  | "done"
+  | "error";
+
 export default function AnalysisScreen() {
   const router = useRouter();
-  const { imageUri, bodyShape, occasion } = useLocalSearchParams<{
+  const {
+    imageUri,
+    garmentId,
+    garmentImageUrl,
+    garmentCategory,
+    bodyShape,
+    occasion,
+  } = useLocalSearchParams<{
     imageUri: string;
+    garmentId?: string;
+    garmentImageUrl?: string;
+    garmentCategory?: string;
     bodyShape?: string;
     occasion?: string;
   }>();
 
   const decodedImageUri = imageUri ? decodeURIComponent(imageUri) : null;
 
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(true);
+  const [stage, setStage] = useState<Stage>("loading-prefs");
+  const [displayImageUri, setDisplayImageUri] = useState<string | null>(
+    decodedImageUri,
+  );
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Body shape isn't passed as a route param anywhere in the flow —
-  // it's set once in the quiz and persisted to AsyncStorage. Read it
-  // back here so it actually reaches the AI call and the Supabase save.
   const [storedBodyShape, setStoredBodyShape] = useState<string | null>(null);
   const [storedOccasion, setStoredOccasion] = useState<string | null>(null);
-  const [hasLoadedStoredShape, setHasLoadedStoredShape] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    AsyncStorage.getItem("userBodyShape")
-      .then((value) => {
-        if (isMounted) setStoredBodyShape(value);
-      })
-      .catch((err) => {
-        console.warn("Failed to read stored body shape:", err);
-      })
-      .finally(() => {
-        if (isMounted) setHasLoadedStoredShape(true);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    // Wait for the AsyncStorage read to finish before firing analysis,
-    // otherwise this races and bodyShape ends up undefined on first run.
-    if (!hasLoadedStoredShape) return;
-
-    const runAnalysis = async () => {
-      if (!decodedImageUri) {
-        setError("No image provided");
-        setIsAnalyzing(false);
-        return;
-      }
-
-      const effectiveBodyShape = bodyShape ?? storedBodyShape ?? undefined;
-      const effectiveOccasion = occasion ?? storedOccasion ?? undefined;
-
-      try {
-        const analysisResult = await analyzeOutfit(decodedImageUri, {
-          bodyShape: effectiveBodyShape,
-          occasion: effectiveOccasion,
-          saveToDatabase: true,
-        });
-        setResult(analysisResult);
-      } catch (err) {
-        console.error("Analysis error:", err);
-        setError("Failed to analyze outfit. Please try again.");
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-
-    runAnalysis();
-  }, [
-    decodedImageUri,
-    bodyShape,
-    occasion,
-    storedBodyShape,
-    hasLoadedStoredShape,
-  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,7 +73,6 @@ export default function AnalysisScreen() {
       AsyncStorage.getItem("userOccasion"),
     ])
       .then(([shape, occ]) => {
-        console.log("Read from storage — bodyShape:", shape, "occasion:", occ);
         if (isMounted) {
           setStoredBodyShape(shape);
           setStoredOccasion(occ);
@@ -115,12 +80,98 @@ export default function AnalysisScreen() {
       })
       .catch((err) => console.warn("Failed to read stored preferences:", err))
       .finally(() => {
-        if (isMounted) setHasLoadedStoredShape(true);
+        if (isMounted) setStage("uploading");
       });
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (stage !== "uploading") return;
+
+    const run = async () => {
+      if (!decodedImageUri) {
+        setError("No image provided");
+        setStage("error");
+        return;
+      }
+
+      const effectiveBodyShape = bodyShape ?? storedBodyShape ?? undefined;
+      const effectiveOccasion = occasion ?? storedOccasion ?? undefined;
+
+      try {
+        // Step 1: person photo -> public URL (YouCam needs a public URL, not local file://)
+        const personPublicUrl = await uploadPhotoToStorage(decodedImageUri);
+
+        // Step 2: VTO, if a garment was selected via outfit-browse
+        let imageForAnalysis = decodedImageUri;
+        if (garmentImageUrl) {
+          setStage("vto");
+          const vtoResult = await requestVirtualTryOn({
+            personImageUrl: personPublicUrl,
+            garmentImageUrl,
+            category: (garmentCategory as any) ?? "auto",
+          });
+
+          if (!vtoResult.success || !vtoResult.resultImageUrl) {
+            throw new Error(vtoResult.error ?? "VTO failed to return a result");
+          }
+
+          setDisplayImageUri(vtoResult.resultImageUrl);
+          imageForAnalysis = vtoResult.resultImageUrl;
+        }
+
+        // Step 3: styling analysis on the VTO result (or raw photo if no garment was picked)
+        setStage("analyzing");
+        const analysisResult = await analyzeOutfit(imageForAnalysis, {
+          bodyShape: effectiveBodyShape,
+          occasion: effectiveOccasion,
+          saveToDatabase: false, // save manually below, after re-hosting the VTO result
+        });
+        setResult(analysisResult);
+
+        // Step 4: re-host the (possibly presigned/expiring) VTO result before persisting
+        let permanentImageUrl = personPublicUrl;
+        if (garmentImageUrl && imageForAnalysis !== decodedImageUri) {
+          permanentImageUrl = await rehostImageToStorage(imageForAnalysis);
+        }
+
+        const { saveLook } = await import("@/shared/api/supabase");
+        const Crypto = await import("expo-crypto");
+        await saveLook({
+          outfitId: garmentId ?? Crypto.randomUUID(),
+          vtoImageUrl: permanentImageUrl,
+          stylingInsight: analysisResult.reasoning,
+          embedding: analysisResult.embedding,
+          bodyShape: effectiveBodyShape,
+          occasion: effectiveOccasion,
+        });
+
+        setStage("done");
+      } catch (err) {
+        console.error("Analysis pipeline error:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to analyze outfit. Please try again.",
+        );
+        setStage("error");
+      }
+    };
+
+    run();
+  }, [
+    stage,
+    decodedImageUri,
+    garmentImageUrl,
+    garmentCategory,
+    garmentId,
+    bodyShape,
+    occasion,
+    storedBodyShape,
+    storedOccasion,
+  ]);
 
   const handleTryAnother = () => {
     router.replace("/photo-upload");
@@ -130,9 +181,19 @@ export default function AnalysisScreen() {
     setIsSaved((prev) => !prev);
   };
 
+  const loadingLabel: Record<Stage, string> = {
+    "loading-prefs": "Getting ready...",
+    uploading: "Uploading your photo...",
+    vto: "Trying on the outfit...",
+    analyzing: "Analyzing your style...",
+    done: "",
+    error: "",
+  };
+
+  const isBusy = stage !== "done" && stage !== "error";
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -160,26 +221,24 @@ export default function AnalysisScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Preview */}
-        {decodedImageUri && (
+        {displayImageUri && (
           <View style={styles.imageContainer}>
             <Image
-              source={{ uri: decodedImageUri }}
+              source={{ uri: displayImageUri }}
               style={styles.previewImage}
             />
           </View>
         )}
 
-        {/* Analysis Content */}
-        {isAnalyzing ? (
+        {isBusy ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Analyzing your style...</Text>
+            <Text style={styles.loadingText}>{loadingLabel[stage]}</Text>
             <Text style={styles.loadingSubtext}>
               Gemini Vision + Groq AI are working on it
             </Text>
           </View>
-        ) : error ? (
+        ) : stage === "error" ? (
           <View style={styles.errorContainer}>
             <Ionicons
               name="alert-circle-outline"
@@ -198,7 +257,6 @@ export default function AnalysisScreen() {
           <View style={styles.resultContainer}>
             <Text style={styles.verdict}>{result.styleVerdict}</Text>
 
-            {/* Color tags */}
             {result.colors && result.colors.length > 0 && (
               <View style={styles.colorsContainer}>
                 {result.colors.slice(0, 4).map((color, index) => (
@@ -237,8 +295,7 @@ export default function AnalysisScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Bottom CTA */}
-      {!isAnalyzing && !error && (
+      {stage === "done" && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.tryAnotherButton}
@@ -254,10 +311,7 @@ export default function AnalysisScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -267,24 +321,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
-    padding: spacing.xs,
-  },
+  backButton: { padding: spacing.xs },
   headerTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.semibold,
     color: colors.primary,
   },
-  saveButton: {
-    padding: spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
+  saveButton: { padding: spacing.xs },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
   imageContainer: {
     width: "100%",
     aspectRatio: 3 / 4,
@@ -293,11 +338,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     ...shadows.md,
   },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
+  previewImage: { width: "100%", height: "100%", resizeMode: "cover" },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
@@ -340,9 +381,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.button,
     fontWeight: fontWeight.semibold,
   },
-  resultContainer: {
-    marginTop: spacing.lg,
-  },
+  resultContainer: { marginTop: spacing.lg },
   verdict: {
     fontSize: fontSize.h1,
     fontWeight: fontWeight.bold,

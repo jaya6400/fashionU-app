@@ -139,3 +139,44 @@ export async function uploadPhotoToStorage(localUri: string): Promise<string> {
     throw new Error("Failed to upload photo to storage");
   }
 }
+
+/**
+ * Downloads a remote image (e.g. a presigned, expiring YouCam VTO
+ * result URL) and re-uploads it into the public `user-photos` bucket
+ * so it has a stable, non-expiring URL before being persisted.
+ */
+export async function rehostImageToStorage(remoteUrl: string): Promise<string> {
+  try {
+    const response = await fetch(remoteUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch remote image: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+
+    const fileName = `vto-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("user-photos")
+      .upload(fileName, arrayBuffer, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Rehost upload error:", uploadError);
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage
+      .from("user-photos")
+      .getPublicUrl(fileName);
+    if (!data?.publicUrl) {
+      throw new Error("Failed to get public URL for rehosted VTO result");
+    }
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Rehost image error:", error);
+    throw new Error("Failed to rehost VTO result image");
+  }
+}

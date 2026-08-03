@@ -1,7 +1,6 @@
 import { analyzeOutfitImage, generateEmbedding } from "@/shared/api/gemini";
 import { generateStylingInsightWithFallback } from "@/shared/api/groq";
 import { saveLook } from "@/shared/api/supabase";
-import * as Crypto from "expo-crypto";
 
 export interface AnalysisResult {
   styleVerdict: string;
@@ -11,6 +10,7 @@ export interface AnalysisResult {
   bodyShapeAdvice?: string;
   outfitDescription: string;
   colors: string[];
+  embedding: number[];
 }
 
 /**
@@ -29,23 +29,18 @@ export async function analyzeOutfit(
   },
 ): Promise<AnalysisResult> {
   try {
-    // Step 1: Analyze image with Gemini Vision
     const imageAnalysis = await analyzeOutfitImage(imageUri);
-
-    // Step 2: Generate embedding for the outfit description
     const embedding = await generateEmbedding(imageAnalysis.description);
 
-    // Step 3: Generate styling insights using Groq (with fallback)
     const stylingInsight = await generateStylingInsightWithFallback(
       imageAnalysis.description,
       options?.bodyShape,
       options?.occasion,
     );
 
-    // Step 4: Optionally save to Supabase
     if (options?.saveToDatabase) {
       await saveLook({
-        outfitId: options.outfitId ?? Crypto.randomUUID(), // you need a real outfit id source here
+        outfitId: Date.now().toString(),
         vtoImageUrl: imageUri,
         stylingInsight: imageAnalysis.description,
         embedding,
@@ -58,6 +53,7 @@ export async function analyzeOutfit(
       ...stylingInsight,
       outfitDescription: imageAnalysis.description,
       colors: imageAnalysis.colors,
+      embedding,
     };
   } catch (error) {
     console.error("AI analysis pipeline error:", error);
