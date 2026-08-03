@@ -49,6 +49,10 @@ Provide your analysis in this exact JSON format:
   ${bodyShape ? `"bodyShapeAdvice": "Specific advice for ${bodyShape} body shape regarding this silhouette"` : ""}
 }`;
 
+    console.log(
+      "[Groq] Calling llama-3.3-70b-versatile for styling insight...",
+    );
+
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
@@ -79,6 +83,7 @@ Provide your analysis in this exact JSON format:
     }
 
     const parsed: StylingInsight = JSON.parse(content);
+    console.log("[Groq] Success — verdict:", parsed.styleVerdict);
     return parsed;
   } catch (error) {
     console.error("Groq styling insight error:", error);
@@ -100,7 +105,7 @@ export async function generateStylingInsightFallback(
     const genAI = new GoogleGenerativeAI(API_KEY!);
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-3.5-flash",
     });
 
     const prompt = `You are an expert fashion stylist. Analyze this outfit:
