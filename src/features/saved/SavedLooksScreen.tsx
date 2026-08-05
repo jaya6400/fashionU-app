@@ -1,24 +1,24 @@
 import {
-    borderRadius,
-    colors,
-    fontSize,
-    fontWeight,
-    shadows,
-    spacing,
+  borderRadius,
+  colors,
+  fontSize,
+  fontWeight,
+  shadows,
+  spacing,
 } from "@/constants/theme";
 import { supabase } from "@/shared/api/supabase";
+import ScreenHeader from "@/shared/components/ScreenHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface SavedLook {
@@ -45,7 +45,6 @@ export default function SavedLooksScreen() {
         "id, outfit_id, body_shape, occasion, vto_image_url, styling_insight, created_at",
       )
       .order("created_at", { ascending: false });
-
     if (error) {
       console.error("Failed to load saved looks:", error);
     } else {
@@ -94,19 +93,8 @@ export default function SavedLooksScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Looks</Text>
-        <View style={styles.backButton} />
-      </View>
-
+    <View style={styles.container}>
+      <ScreenHeader title="Saved Looks" />
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -134,27 +122,12 @@ export default function SavedLooksScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: { padding: spacing.xs },
-  headerTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.primary,
-  },
   centered: {
     flex: 1,
     alignItems: "center",

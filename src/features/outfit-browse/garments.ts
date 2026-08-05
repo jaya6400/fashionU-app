@@ -9,12 +9,11 @@ export interface Garment {
 export const GARMENT_CATALOGUE: Garment[] = [
   {
     id: "garment-001",
-    name: "Casual White Tee",
-    // Verified working in your previous test
+    name: "Working women office formal",
     imageUrl:
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=80",
-    category: "upper_body",
-    occasionTags: ["casual", "daily"],
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/Business-Professional-1-scaled.webp",
+    category: "full_body",
+    occasionTags: ["formal", "work"],
   },
   {
     id: "garment-002",
@@ -27,11 +26,11 @@ export const GARMENT_CATALOGUE: Garment[] = [
   },
   {
     id: "garment-003",
-    name: "Professional Blazer",
+    name: "Professional men office formal",
     // A blazer/jacket image
     imageUrl:
-      "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500&q=80",
-    category: "upper_body",
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/menformal1.webp",
+    category: "full_body",
     occasionTags: ["work", "formal"],
   },
   {
@@ -42,5 +41,23 @@ export const GARMENT_CATALOGUE: Garment[] = [
       "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&q=80",
     category: "full_body",
     occasionTags: ["vacation", "casual"],
+  },
+  {
+    id: "garment-005",
+    name: "Women formal professional dress",
+    // A casual/professional full body dress
+    imageUrl:
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/womwnfor2.webp",
+    category: "full_body",
+    occasionTags: ["vacation", "casual", "formal"],
+  },
+  {
+    id: "garment-006",
+    name: "Casual men oversized shirt with trousers",
+    // A model with oversized shirt with trousers
+    imageUrl:
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/menformal2.webp",
+    category: "full_body",
+    occasionTags: ["date", "casual", "party"],
   },
 ];

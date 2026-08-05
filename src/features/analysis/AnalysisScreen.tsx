@@ -12,6 +12,7 @@ import {
   uploadPhotoToStorage,
 } from "@/shared/api/supabase";
 import { requestVirtualTryOn } from "@/shared/api/youcam";
+import ScreenHeader from "@/shared/components/ScreenHeader";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -19,13 +20,13 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Stage =
   | "loading-prefs"
@@ -37,6 +38,7 @@ type Stage =
 
 export default function AnalysisScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     imageUri,
     garmentId,
@@ -193,28 +195,23 @@ export default function AnalysisScreen() {
   const isBusy = stage !== "done" && stage !== "error";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>AI Analysis</Text>
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={toggleSave}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name={isSaved ? "heart" : "heart-outline"}
-            size={24}
-            color={isSaved ? colors.accent : colors.primary}
-          />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="AI Analysis"
+        right={
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={toggleSave}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isSaved ? "heart" : "heart-outline"}
+              size={24}
+              color={isSaved ? colors.accent : colors.primary}
+            />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -296,7 +293,9 @@ export default function AnalysisScreen() {
       </ScrollView>
 
       {stage === "done" && (
-        <View style={styles.footer}>
+        <View
+          style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}
+        >
           <TouchableOpacity
             style={styles.tryAnotherButton}
             onPress={handleTryAnother}
@@ -304,29 +303,21 @@ export default function AnalysisScreen() {
           >
             <Text style={styles.tryAnotherText}>Try Another Look</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.viewSavedButton}
+            onPress={() => router.push("/saved-looks")}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewSavedText}>View Saved Looks</Text>
+          </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: { padding: spacing.xs },
-  headerTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.primary,
-  },
   saveButton: { padding: spacing.xs },
   scrollView: { flex: 1 },
   scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
@@ -477,5 +468,18 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSize.button,
     fontWeight: fontWeight.bold,
+  },
+  viewSavedButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  viewSavedText: {
+    color: colors.primaryDark,
+    fontSize: fontSize.bodySmall,
+    fontWeight: fontWeight.semibold,
   },
 });
