@@ -136,7 +136,7 @@ export default function PhotoUploadScreen() {
             onPress={pickImage}
           >
             <Ionicons name="images" size={20} color={colors.white} />
-            <Text style={styles.primaryButtonText}>Choose from Library</Text>
+            <Text style={styles.primaryButtonText}>Upload from Device</Text>
           </TouchableOpacity>
         </View>
 
@@ -182,7 +182,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
     justifyContent: "space-between",
   },
   previewContainer: {
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
   },
   primaryButton: {

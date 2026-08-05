@@ -304,6 +304,14 @@ export default function AnalysisScreen() {
           >
             <Text style={styles.tryAnotherText}>Try Another Look</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.viewSavedButton}
+            onPress={() => router.push("/saved-looks")}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewSavedText}>View Saved Looks</Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
@@ -477,5 +485,18 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSize.button,
     fontWeight: fontWeight.bold,
+  },
+  viewSavedButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  viewSavedText: {
+    color: colors.primaryDark,
+    fontSize: fontSize.bodySmall,
+    fontWeight: fontWeight.semibold,
   },
 });

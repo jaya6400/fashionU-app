@@ -123,13 +123,25 @@ export default function LandingScreen() {
         </View>
 
         {/* CTA Button */}
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={handleGetStarted}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.ctaText}>Get started</Text>
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={handleGetStarted}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.ctaText}>Get started</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.savedLooksButton}
+            onPress={() => router.push("/saved-looks")}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="heart-outline" size={18} color={colors.primary} />
+            <Text style={styles.savedLooksText}>View Saved Looks</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -200,5 +212,18 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSize.button,
     fontWeight: fontWeight.semibold,
+  },
+  savedLooksButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  savedLooksText: {
+    color: colors.primary,
+    fontSize: fontSize.bodySmall,
+    fontWeight: fontWeight.medium,
+    marginLeft: spacing.xs,
   },
 });
