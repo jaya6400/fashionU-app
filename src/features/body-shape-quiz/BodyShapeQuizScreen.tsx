@@ -1,22 +1,23 @@
 // src/features/body-shape-quiz/BodyShapeQuizScreen.tsx
+import {
+  borderRadius,
+  colors,
+  fontSize,
+  fontWeight,
+  spacing,
+} from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import {
-    borderRadius,
-    colors,
-    fontSize,
-    fontWeight,
-    spacing,
-} from "../../constants/theme";
 
 type BodyShape =
   | "hourglass"
@@ -69,7 +70,6 @@ export default function BodyShapeQuizScreen() {
       );
       return;
     }
-
     setIsSaving(true);
     try {
       await AsyncStorage.setItem("userBodyShape", selectedShape);
@@ -87,7 +87,18 @@ export default function BodyShapeQuizScreen() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        <Text style={styles.title}>What is your body shape?</Text>
+        <View style={styles.titleRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { transform: [{ translateX: 6 }] }]}>
+            What is your body shape?
+          </Text>
+        </View>
         <Text style={styles.subtitle}>
           This helps our AI provide personalized silhouette recommendations.
           (This is self-reported and never inferred from your photo).
@@ -148,38 +159,40 @@ export default function BodyShapeQuizScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    backgroundColor: colors.background,
+  scrollContainer: { flexGrow: 1, backgroundColor: colors.background },
+  container: { flex: 1, padding: spacing.lg, paddingTop: spacing.xl },
+  titleRow: {
+    position: "relative",
+    alignItems: "center",
+    marginBottom: spacing.sm,
   },
-  container: {
-    flex: 1,
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
+  backButton: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    padding: spacing.xs,
   },
   title: {
-    fontSize: fontSize.xl ?? 24,
-    fontWeight: fontWeight.bold ?? "700",
-    color: colors.primaryDark ?? colors.primary,
-    marginBottom: spacing.sm,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.primaryDark,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: fontSize.sm ?? 14,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
     marginBottom: spacing.xl,
     textAlign: "center",
     lineHeight: 20,
   },
-  optionsContainer: {
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
+  optionsContainer: { gap: spacing.md, marginBottom: spacing.xl },
   optionCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.md,
-    borderRadius: borderRadius.md ?? 12,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
@@ -198,44 +211,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: spacing.md,
   },
-  radioSelected: {
-    borderColor: colors.primary,
-  },
+  radioSelected: { borderColor: colors.primary },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: colors.primary,
   },
-  optionTextContainer: {
-    flex: 1,
-  },
+  optionTextContainer: { flex: 1 },
   optionLabel: {
-    fontSize: fontSize.md ?? 16,
-    fontWeight: fontWeight.semibold ?? "600",
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
     color: colors.primaryDark,
     marginBottom: 2,
   },
-  optionLabelSelected: {
-    color: colors.primary,
-  },
-  optionDescription: {
-    fontSize: fontSize.sm ?? 14,
-    color: colors.textSecondary,
-  },
+  optionLabelSelected: { color: colors.primary },
+  optionDescription: { fontSize: fontSize.sm, color: colors.textSecondary },
   continueButton: {
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
-    borderRadius: borderRadius.md ?? 12,
+    borderRadius: borderRadius.md,
     alignItems: "center",
     marginTop: "auto",
+    marginBottom: spacing.xxl,
   },
-  continueButtonDisabled: {
-    backgroundColor: colors.border,
-  },
+  continueButtonDisabled: { backgroundColor: colors.border },
   continueButtonText: {
     color: colors.white,
-    fontSize: fontSize.md ?? 16,
-    fontWeight: fontWeight.semibold ?? "600",
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
 });

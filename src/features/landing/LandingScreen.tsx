@@ -219,6 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
+    marginBottom: 150,
   },
   savedLooksText: {
     color: colors.primary,
