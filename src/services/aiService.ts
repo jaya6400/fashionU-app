@@ -42,7 +42,7 @@ export async function analyzeOutfit(
       await saveLook({
         outfitId: Date.now().toString(),
         vtoImageUrl: imageUri,
-        stylingInsight: imageAnalysis.description,
+        stylingInsight: stylingInsight.reasoning,
         embedding,
         bodyShape: options.bodyShape,
         occasion: options.occasion,

@@ -32,6 +32,10 @@ IMPORTANT RULES:
 - Always frame advice positively - never say "doesn't suit you"
 - Focus on what WORKS and why
 - Be specific about colors, proportions, and styling details
+- Ground every claim in the actual fit/silhouette details given in the
+  outfit description below (neckline, waist, sleeve, length, cut) — do
+  NOT default to generic praise like "this flatters your figure" or
+  "looks great on you" without tying it to a specific garment detail
 - Keep tone warm, encouraging, and editorial (like a fashion magazine)`;
 
     const userPrompt = `Analyze this outfit and provide styling insights:
@@ -115,7 +119,9 @@ ${bodyShape ? `Body Shape: ${bodyShape}` : ""}
 ${occasion ? `Occasion: ${occasion}` : ""}
 
 Provide JSON with: styleVerdict (2-3 words), reasoning (2-3 sentences), tags (array of 3-4), suggestion (one tip).
-Use positive, confidence-building language. Never mention body size/weight.`;
+Use positive, confidence-building language. Never mention body size/weight.
+Ground the reasoning in the specific fit/silhouette details above (neckline,
+waist, sleeve, length, cut) rather than generic praise.`;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
