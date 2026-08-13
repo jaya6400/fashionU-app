@@ -20,7 +20,7 @@ export const GARMENT_CATALOGUE: Garment[] = [
     name: "Elegant Evening Gown",
     // A full body dress image
     imageUrl:
-      "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&q=80",
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/floral-dress.jfif",
     category: "full_body",
     occasionTags: ["formal", "party", "date_night"],
   },
@@ -36,9 +36,9 @@ export const GARMENT_CATALOGUE: Garment[] = [
   {
     id: "garment-004",
     name: "Summer Floral Dress",
-    // A casual full body dress
+    // A casual knee length dress
     imageUrl:
-      "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&q=80",
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/front-half-frok.jfif",
     category: "full_body",
     occasionTags: ["vacation", "casual"],
   },
@@ -58,6 +58,6 @@ export const GARMENT_CATALOGUE: Garment[] = [
     imageUrl:
       "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/menformal2.webp",
     category: "full_body",
-    occasionTags: ["date", "casual", "party"],
+    occasionTags: ["date_night", "casual", "party"],
   },
 ];

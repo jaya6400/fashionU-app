@@ -53,19 +53,40 @@ export async function analyzeOutfitImage(imageUri: string): Promise<{
       },
     });
 
-    // Convert image URI to base64 for Gemini Vision
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
-    const base64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
-
-    const imageData = base64.split(",")[1]; // Remove data:image/...;base64, prefix
+    // Convert image URI to base64 for Gemini Vision.
+    // IMPORTANT: fetch().blob() + FileReader is unreliable for local file://
+    // URIs in RN (see AGENTS.md gotchas) and is the likely cause of
+    // intermittent hangs/timeouts on the no-garment (raw photo) path.
+    // Local files -> expo-file-system/legacy. Remote https:// (VTO result
+    // URLs) -> fetch+blob is fine, that path was already confirmed working.
+    let imageData: string;
+    if (imageUri.startsWith("file://")) {
+      const { readAsStringAsync, EncodingType } =
+        await import("expo-file-system/legacy");
+      imageData = await readAsStringAsync(imageUri, {
+        encoding: EncodingType.Base64,
+      });
+    } else {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      imageData = base64.split(",")[1]; // strip data:image/...;base64, prefix
+    }
 
     const prompt = `Analyze this outfit image and provide:
-    1. A detailed description of the clothing items
+    1. A detailed description of the clothing items, INCLUDING fit and
+       silhouette specifics: neckline shape, waist definition (cinched,
+       loose, dropped), sleeve length and volume, garment length, and
+       overall cut (fitted, relaxed, structured, flowy). These fit
+       details are essential — a downstream stylist uses them to give
+       body-shape-specific advice, so be concrete rather than generic
+       (e.g. "V-neck with a fitted waist and wide-leg trouser" rather
+       than "a nice top and pants").
     2. The dominant colors
     3. The overall style (e.g., casual, formal, bohemian, minimalist)
     4. Suitable occasions
