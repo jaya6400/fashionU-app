@@ -28,10 +28,12 @@ export default function PhotoUploadScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // Gentle glow pulse once a photo is selected
+  // Continuous glow pulse — always running. Empty state cycles
+  // border/secondary; once a photo is picked it recolors to accent/primary
+  // on the very next beat, rather than restarting the animation, so the
+  // transition reads as "the glow changed" not "a new glow started."
   const glow = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!imageUri) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(glow, {
@@ -48,7 +50,7 @@ export default function PhotoUploadScreen() {
     );
     loop.start();
     return () => loop.stop();
-  }, [imageUri, glow]);
+  }, [glow]);
 
   const glowOpacity = glow.interpolate({
     inputRange: [0, 1],
@@ -60,7 +62,9 @@ export default function PhotoUploadScreen() {
   });
   const glowBorder = glow.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.secondary, colors.primary],
+    outputRange: imageUri
+      ? [colors.accent, colors.primary]
+      : [colors.border, colors.secondary],
   });
 
   const requestPermissions = async () => {
@@ -135,17 +139,16 @@ export default function PhotoUploadScreen() {
         <Animated.View
           style={[
             styles.previewBase,
-            imageUri
-              ? {
-                  borderWidth: 2,
-                  borderColor: glowBorder,
-                  shadowColor: colors.primary,
-                  shadowOpacity: glowOpacity,
-                  shadowRadius: glowRadius,
-                  shadowOffset: { width: 0, height: 0 },
-                  elevation: 6,
-                }
-              : styles.previewEmpty,
+            {
+              borderWidth: 2,
+              borderStyle: imageUri ? "solid" : "dashed",
+              borderColor: glowBorder,
+              shadowColor: imageUri ? colors.primary : colors.secondary,
+              shadowOpacity: glowOpacity,
+              shadowRadius: glowRadius,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 6,
+            },
           ]}
         >
           {imageUri ? (
@@ -219,11 +222,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
     marginVertical: spacing.xl,
-  },
-  previewEmpty: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: "dashed",
   },
   previewImage: { width: "100%", height: "100%", resizeMode: "cover" },
   placeholderContainer: { alignItems: "center", paddingHorizontal: spacing.xl },

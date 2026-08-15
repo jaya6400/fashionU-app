@@ -1,3 +1,5 @@
+import { retryWithBackoff } from "@/shared/utils/retry";
+
 const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
 
 if (!GROQ_API_KEY) {
@@ -57,25 +59,49 @@ Provide your analysis in this exact JSON format:
       "[Groq] Calling llama-3.3-70b-versatile for styling insight...",
     );
 
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+    const response = await retryWithBackoff(
+      async () => {
+        const res = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        // Only 429/503 are treated as transient — attach status so the
+        // retry helper's default matcher picks it up, then throw so
+        // retryWithBackoff actually retries this attempt.
+        if (!res.ok && (res.status === 429 || res.status === 503)) {
+          const err = new Error(`Groq API error: ${res.status}`) as Error & {
+            status: number;
+          };
+          err.status = res.status;
+          throw err;
+        }
+        return res;
       },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-        response_format: { type: "json_object" },
-      }),
-    });
+      {
+        onRetry: (attempt, delayMs) =>
+          console.warn(
+            `[Groq] rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
+          ),
+      },
+    );
 
     if (!response.ok) {
+      // Any non-429/503 failure surfaces immediately — it's a real
+      // error (auth, bad request, etc.), not something retrying fixes.
       throw new Error(`Groq API error: ${response.status}`);
     }
 
@@ -123,7 +149,15 @@ Use positive, confidence-building language. Never mention body size/weight.
 Ground the reasoning in the specific fit/silhouette details above (neckline,
 waist, sleeve, length, cut) rather than generic praise.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await retryWithBackoff(
+      () => model.generateContent(prompt),
+      {
+        onRetry: (attempt, delayMs) =>
+          console.warn(
+            `[Gemini fallback] rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
+          ),
+      },
+    );
     const responseText = result.response.text();
 
     // Extract JSON from response
