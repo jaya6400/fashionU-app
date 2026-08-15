@@ -17,8 +17,12 @@ interface StylingInsight {
 }
 
 /**
- * Generate AI styling insights using Groq (Llama 3.3 70B)
- * This is the primary model for live insight generation
+ * Generate AI styling insights using Groq (OpenAI GPT-OSS 120B)
+ * This is the primary model for live insight generation.
+ * NOTE: llama-3.3-70b-versatile was decommissioned by Groq on Aug 16,
+ * 2026 — migrated to openai/gpt-oss-120b (Aug 15). This is a reasoning
+ * model, unlike the old one, so reasoning_effort is forced to "low" to
+ * keep latency reasonable for a mobile loading spinner.
  */
 export async function generateStylingInsight(
   outfitDescription: string,
@@ -55,9 +59,7 @@ Provide your analysis in this exact JSON format:
   ${bodyShape ? `"bodyShapeAdvice": "Specific advice for ${bodyShape} body shape regarding this silhouette"` : ""}
 }`;
 
-    console.log(
-      "[Groq] Calling llama-3.3-70b-versatile for styling insight...",
-    );
+    console.log("[Groq] Calling openai/gpt-oss-120b for styling insight...");
 
     const response = await retryWithBackoff(
       async () => {
@@ -68,13 +70,14 @@ Provide your analysis in this exact JSON format:
             Authorization: `Bearer ${GROQ_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
             temperature: 0.7,
             max_tokens: 500,
+            reasoning_effort: "low",
             response_format: { type: "json_object" },
           }),
         });
@@ -109,6 +112,14 @@ Provide your analysis in this exact JSON format:
     const content = data.choices[0]?.message?.content;
 
     if (!content) {
+      // gpt-oss-120b is a reasoning model — if this fires, check whether
+      // data.choices[0].message.reasoning has content instead; that would
+      // mean the model needs a stronger nudge to put the answer in
+      // `content` rather than just reasoning about it.
+      console.error(
+        "[Groq] Empty content. Full message object:",
+        JSON.stringify(data.choices[0]?.message),
+      );
       throw new Error("No content returned from Groq API");
     }
 
@@ -149,15 +160,12 @@ Use positive, confidence-building language. Never mention body size/weight.
 Ground the reasoning in the specific fit/silhouette details above (neckline,
 waist, sleeve, length, cut) rather than generic praise.`;
 
-    const result = await retryWithBackoff(
-      () => model.generateContent(prompt),
-      {
-        onRetry: (attempt, delayMs) =>
-          console.warn(
-            `[Gemini fallback] rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
-          ),
-      },
-    );
+    const result = await retryWithBackoff(() => model.generateContent(prompt), {
+      onRetry: (attempt, delayMs) =>
+        console.warn(
+          `[Gemini fallback] rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
+        ),
+    });
     const responseText = result.response.text();
 
     // Extract JSON from response

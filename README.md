@@ -4,7 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20pgvector-3ECF8E?logo=supabase&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini-Vision%20%2B%20Embeddings-4285F4?logo=googlegemini&logoColor=white)
-![Groq](https://img.shields.io/badge/Groq-Llama%203.3%2070B-F55036?logo=groq&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-GPT--OSS%20120B-F55036?logo=groq&logoColor=white)
 ![YouCam](https://img.shields.io/badge/YouCam-Apparel%20VTO-723380)
 
 AI-powered styling decision assistant — built for the YouCam API
@@ -15,17 +15,9 @@ insight, not just a try-on render. Upload a photo, try on outfits via
 YouCam's virtual try-on, and get positive, confidence-framed styling
 advice tailored to your self-reported body shape and occasion.
 
-> DEMO Link:
+> Youtube Video Link:
 
 ## Demo Video
-
-<!--
-  Open this file in the GitHub web editor and drag the video file
-  directly into the text box. GitHub uploads it and auto-inserts a
-  hosted embed (an https://github.com/user-attachments/assets/... link
-  or <video> tag) right where your cursor is — replace this comment
-  block with whatever GitHub generates.
--->
 
 ## Tech stack
 
@@ -37,7 +29,7 @@ advice tailored to your self-reported body shape and occasion.
     fit/silhouette specifics (neckline, waist, sleeve, cut) for
     body-shape-specific styling advice
   - Gemini (`gemini-embedding-001`) — text embeddings for similarity search
-  - Groq (`llama-3.3-70b-versatile`) — styling insight generation, with
+  - Groq (`openai/gpt-oss-120b`) — styling insight generation, with
     Gemini fallback
   - All Gemini/Groq calls retry with exponential backoff on transient
     429/503 errors (`src/shared/utils/retry.ts`)
@@ -56,7 +48,7 @@ flowchart TD
     VTO --> RH[Supabase Storage<br/>re-host VTO result]
 
     AS --> GV[Gemini Vision<br/>fit + silhouette analysis]
-    GV --> GQ[Groq Llama 3.3 70B<br/>styling insight]
+    GV --> GQ[Groq GPT-OSS 120B<br/>styling insight]
     GQ -.fallback on failure.-> GF[Gemini Flash<br/>fallback insight]
     GV --> EMB[Gemini Embeddings<br/>gemini-embedding-001]
 
@@ -135,7 +127,7 @@ shape) from React Native environment quirks.
 - The styling-insight comparison screen is the core product
   differentiator — prioritized over catalogue breadth.
 
-  ## Project structure
+## Project structure
 
 ```
 src/
@@ -175,10 +167,10 @@ and AI contributors on this project.
 
 ## Screenshots
 
-|                                                               |                                                      |
-| ------------------------------------------------------------- | ---------------------------------------------------- |
-| ![Upload photo](screenshots/oversiz_man_image_upload.jpg)     | ![Try-on result](screenshots/oversiz_man_tryon1.jpg) |
-| ![AI styling insight](screenshots/oversiz_man_tryon_an_3.jpg) |                                                      |
+|                                                               |                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| ![Upload photo](screenshots/oversiz_man_image_upload.jpg)     | ![Try-on result](screenshots/oversiz_man_tryon1.jpg)          |
+| ![AI styling insight](screenshots/oversiz_man_tryon_an_2.jpg) | ![AI styling insight](screenshots/oversiz_man_tryon_an_3.jpg) |
 
 ## License
 

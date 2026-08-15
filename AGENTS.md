@@ -29,7 +29,7 @@ Storage: Supabase Storage (`user-photos` bucket, public) — required
 because YouCam's src_file_url must be a publicly reachable URL; local
 file:// URIs are uploaded here first to get a public link
 Styling AI: Gemini `gemini-embedding-001` (3072-dim, matches Supabase
-pgvector column) for embeddings, Groq (llama-3.3-70b-versatile) for
+pgvector column) for embeddings, Groq (openai/gpt-oss-120b) for
 live insight text generation, Gemini `gemini-3.5-flash` for Vision
 analysis (with `responseMimeType: "application/json"` forced) and as
 Groq fallback
@@ -84,6 +84,12 @@ generateContent, Groq primary call, and Gemini fallback call. Insurance
 against hackathon-week rate-limit pressure (~1,125 participants); not
 confirmed to have fixed a reproduced bug, since the file:// fix above
 already resolved the timeouts seen in testing.
+✅ Groq model migration (Aug 15, FORCED): `llama-3.3-70b-versatile` was
+decommissioned by Groq on Aug 16, 2026 — before this project's Aug 17
+deadline, not optional. Migrated to `openai/gpt-oss-120b`, their
+recommended replacement. This is a reasoning model (the old one wasn't)
+— `reasoning_effort: "low"` set explicitly to bound latency. Retested
+working post-migration.
 ✅ RLS enabled (Aug 13): `saved_looks` and `styling_rules` had RLS
 disabled (Supabase flagged as publicly writable/deletable via anon key).
 Migration `enable_rls.sql` restricts anon to select+insert only — matches
@@ -220,7 +226,7 @@ history at /saved-looks
 2. Final full-flow regression pass on the actual demo device before
    recording (both no-garment and VTO paths).
 
-YOUCAM CREDITS: 1000 remaining as of Aug 14.
+YOUCAM CREDITS: 990 remaining as of Aug 15.
 
 ## Deferred / out of scope unless credits allow
 
