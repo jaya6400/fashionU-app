@@ -15,9 +15,13 @@ insight, not just a try-on render. Upload a photo, try on outfits via
 YouCam's virtual try-on, and get positive, confidence-framed styling
 advice tailored to your self-reported body shape and occasion.
 
-> Youtube Video Link:
-
 ## Demo Video
+ 
+**Full narrated demo (~2:56 min):** [Watch on YouTube](https://youtube.com/shorts/MH3qpa8b4Dc?feature=share)
+ 
+Quick 38-second silent preview of the app in motion:
+
+https://github.com/user-attachments/assets/3acd3897-d505-4c93-9bcb-99344fa8497b
 
 ## Tech stack
 
