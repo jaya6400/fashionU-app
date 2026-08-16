@@ -7,7 +7,7 @@
 ![Groq](https://img.shields.io/badge/Groq-GPT--OSS%20120B-F55036?logo=groq&logoColor=white)
 ![YouCam](https://img.shields.io/badge/YouCam-Apparel%20VTO-723380)
 
-AI-powered styling decision assistant — built for the YouCam API
+AI-powered styling decision assistant, built for the YouCam API
 Skin AI & Apparel VTO Hackathon.
 
 FashionU helps people compare outfit options with AI-generated styling
