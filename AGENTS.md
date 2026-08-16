@@ -29,7 +29,7 @@ Storage: Supabase Storage (`user-photos` bucket, public) — required
 because YouCam's src_file_url must be a publicly reachable URL; local
 file:// URIs are uploaded here first to get a public link
 Styling AI: Gemini `gemini-embedding-001` (3072-dim, matches Supabase
-pgvector column) for embeddings, Groq (llama-3.3-70b-versatile) for
+pgvector column) for embeddings, Groq (openai/gpt-oss-120b) for
 live insight text generation, Gemini `gemini-3.5-flash` for Vision
 analysis (with `responseMimeType: "application/json"` forced) and as
 Groq fallback
@@ -39,7 +39,7 @@ category default "auto"). Skin AI not integrated. Body-reshape evaluated
 and DEFERRED (brand conflict + credit budget).
 No auth system — local state + AsyncStorage only, this is a hackathon MVP
 
-## Verified integrations (as of Aug 5, 2026)
+## Verified integrations (as of Aug 14, 2026)
 
 ✅ Gemini embeddings (gemini-embedding-001, 3072-dim) — working.
 `outputDimensionality` param removed Aug 6 (not in installed SDK types;
@@ -57,21 +57,61 @@ Analysis footer ghost button on stage="done"). Header heart = LOCAL
 visual toggle only.
 ✅ UI polish (Aug 6): `shared/components/ScreenHeader.tsx` (safe-area
 header via useSafeAreaInsets, back + optional right slot) used by
-Analysis, PhotoUpload, SavedLooks. PhotoUpload: animated glow border on
-selected photo (dashed only when empty), centered equal-height action
-buttons, bottom inset padding. BodyShapeQuiz/Occasion: back arrow
+Analysis, PhotoUpload, SavedLooks. PhotoUpload: centered equal-height
+action buttons, bottom inset padding. BodyShapeQuiz/Occasion: back arrow
 absolutely positioned left of centered title (no layout shift), continue
 button marginBottom lifts it off the gesture zone.
-✅ GARMENT_CATALOGUE (Aug 5): 6 entries with real URLs. 001/003/005/006
-self-hosted .webp in user-photos; 002/004 TEMPORARY Unsplash hotlinks —
-re-host before submission. Interface: id, name, imageUrl, category,
-occasionTags[].
+✅ PhotoUploadScreen glow (Aug 14): animation loop now runs continuously
+from mount, not gated on imageUri. Empty state pulses border/secondary,
+uploaded state pulses accent/primary — same loop, color pair swaps on
+state change so it reads as a recolor rather than a restart.
+✅ Gemini image read fix (Aug 13): local `file://` URIs now go through
+`expo-file-system/legacy` readAsStringAsync instead of fetch().blob()+
+FileReader — the latter is the RN blob-bridge bug documented in gotchas
+below and was the likely cause of intermittent hangs on the no-garment
+(raw photo) path. Remote https:// URLs (VTO results) unaffected, still
+use fetch+blob.
+✅ Vision prompt hardening (Aug 13): analyzeOutfitImage now asks for
+fit/silhouette specifics (neckline, waist, sleeve, length, cut), and
+both the Groq and Gemini-fallback styling prompts instruct grounding
+reasoning in those specifics rather than generic praise. Fixes the
+"generic AI results" issue — confirmed via device testing, styling
+insight now references actual garment fit details per body shape.
+✅ Retry-with-backoff (Aug 14): `src/shared/utils/retry.ts` — retries
+429/503 only, exponential backoff + jitter, max 3 attempts (~7-8s
+worst case). Wrapped around Gemini embedContent, Gemini vision
+generateContent, Groq primary call, and Gemini fallback call. Insurance
+against hackathon-week rate-limit pressure (~1,125 participants); not
+confirmed to have fixed a reproduced bug, since the file:// fix above
+already resolved the timeouts seen in testing.
+✅ Groq model migration (Aug 15, FORCED): `llama-3.3-70b-versatile` was
+decommissioned by Groq on Aug 16, 2026 — before this project's Aug 17
+deadline, not optional. Migrated to `openai/gpt-oss-120b`, their
+recommended replacement. This is a reasoning model (the old one wasn't)
+— `reasoning_effort: "low"` set explicitly to bound latency. Retested
+working post-migration.
+✅ RLS enabled (Aug 13): `saved_looks` and `styling_rules` had RLS
+disabled (Supabase flagged as publicly writable/deletable via anon key).
+Migration `enable_rls.sql` restricts anon to select+insert only — matches
+actual app usage (app never updates/deletes), applied via `supabase db
+push`. Verify Supabase advisor panel shows it cleared before submission.
+✅ GARMENT_CATALOGUE (Aug 13): 002/004 rehosted to user-photos (no more
+Unsplash hotlinks), occasionTags unified to "date_night" (was "date" on
+002/006, didn't match OccasionSelectionScreen's stored value).
+⚠️ garment-001 swapped (Aug 14, user edit) from business-suit photo to a
+kaftan image, but `name` still reads "Working women office formal" and
+`occasionTags` includes `"wedding"` which isn't a valid Occasion enum
+value. NOT YET FIXED — rename + retag before submission. occasionTags
+currently unused for filtering (OutfitBrowseScreen renders full catalogue
+regardless), so this isn't breaking functionality today, but the name
+mismatch IS visible on the garment card in the UI/demo.
 ✅ Outfit-browse screen BUILT (Aug 5): `features/outfit-browse/
 OutfitBrowseScreen.tsx` + stub `app/outfit-browse.tsx`; renders catalogue
 grid, passes garment params into /analysis.
-❌ YouCam Skin AI — not integrated
+❌ YouCam Skin AI — not integrated (out of scope, topic is Apparel VTO)
 ❌ YouCam body-reshape — deferred (brand conflict + credits)
-❌ `match_saved_looks` RPC — missing; `findSimilarLooks()` will error.
+❌ `match_saved_looks` RPC — missing; `findSimilarLooks()` will error;
+out of scope for submission, similarity search not in the demoed flow.
 
 ## Known SDK 54 gotchas (do not re-debug these)
 
@@ -91,6 +131,10 @@ groq.ts keeps `[Groq]` success logs.
 saved_looks list queries MUST use explicit column select (never `*`).
 SafeAreaView does NOTHING on Android — headers must use
 useSafeAreaInsets (see ScreenHeader).
+retry.ts only retries 429/503 — anything else (auth, bad request, parse
+error) throws immediately. Don't broaden isRetryable without a reason;
+retrying non-transient errors just delays a failure that was going to
+happen anyway.
 
 ## Folder structure (feature-based, keep this pattern)
 
@@ -112,11 +156,17 @@ api/ gemini.ts, groq.ts, supabase.ts, youcam.ts,
 test-apis.ts (manual sanity script; run via tsx,
 NOT imported by app; step 3 costs ~2 VTO credits)
 components/ ScreenHeader.tsx — shared safe-area header
+utils/ retry.ts — exponential backoff for 429/503, wraps
+Gemini + Groq calls (added Aug 14)
 constants/
 theme.ts <- Country Garden palette, Muli font tokens
-garments.ts <- GARMENT_CATALOGUE, 6 entries (see Verified)
+garments.ts <- GARMENT_CATALOGUE, 6 entries (see Verified;
+garment-001 name/tag fix still pending)
 services/
 aiService.ts <- orchestrates the AI pipeline; exposes embedding
+supabase/
+migrations/ enable_rls.sql (Aug 13) — RLS on saved_looks +
+styling_rules, anon select+insert only
 
 ## Design tokens (do not invent new colors — use these)
 
@@ -172,18 +222,11 @@ history at /saved-looks
 
 ## Next session — pick up here (in this order)
 
-1. Garment hardening: re-host 002/004 to user-photos; unify occasionTags
-   with OccasionSelectionScreen values ("date" → "date_night"); verify
-   youcam.ts category mapping (full_body → "auto"/"dresses" at call
-   site); one VTO verification run per untested garment (~2 cr each;
-   check .webp acceptance, crossed-arms suit 003, busy backdrop 006).
-2. AI resilience: retry/backoff on 429, Groq vision fallback
-   (llama-4-scout-17b-16e-instruct or llama-3.2-90b-vision — verify via
-   web search), degraded mode; fix stale gemini-1.5-flash-latest
-   fallback name in groq.ts.
-3. match_saved_looks RPC migration (mirror match_styling_rules).
-4. CONTINGENCY only if the parse error recurs: parseVisionJson() robust
-   parser (recipe in gotchas above).
+1. Record demo video, take screenshots, finalize submission description.
+2. Final full-flow regression pass on the actual demo device before
+   recording (both no-garment and VTO paths).
+
+YOUCAM CREDITS: 990 remaining as of Aug 15.
 
 ## Deferred / out of scope unless credits allow
 

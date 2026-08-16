@@ -9,11 +9,11 @@ export interface Garment {
 export const GARMENT_CATALOGUE: Garment[] = [
   {
     id: "garment-001",
-    name: "Working women office formal",
+    name: "Embroidered Kaftan Tunic",
     imageUrl:
-      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/Business-Professional-1-scaled.webp",
+      "https://jpgrytcivdbjskxsvzua.supabase.co/storage/v1/object/public/user-photos/kaftan_wonen.jpg",
     category: "full_body",
-    occasionTags: ["formal", "work"],
+    occasionTags: ["party", "date_night", "vacation"],
   },
   {
     id: "garment-002",

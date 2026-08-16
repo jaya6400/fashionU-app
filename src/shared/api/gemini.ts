@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
+import { retryWithBackoff } from "@/shared/utils/retry";
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
@@ -18,10 +19,19 @@ const EMBEDDING_MODEL =
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
     const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-    const result = await model.embedContent({
-      content: { parts: [{ text }], role: "user" },
-      taskType: TaskType.RETRIEVAL_DOCUMENT,
-    });
+    const result = await retryWithBackoff(
+      () =>
+        model.embedContent({
+          content: { parts: [{ text }], role: "user" },
+          taskType: TaskType.RETRIEVAL_DOCUMENT,
+        }),
+      {
+        onRetry: (attempt, delayMs) =>
+          console.warn(
+            `[Gemini] embedContent rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
+          ),
+      },
+    );
     const embedding = result.embedding.values;
 
     if (!embedding) {
@@ -61,8 +71,9 @@ export async function analyzeOutfitImage(imageUri: string): Promise<{
     // URLs) -> fetch+blob is fine, that path was already confirmed working.
     let imageData: string;
     if (imageUri.startsWith("file://")) {
-      const { readAsStringAsync, EncodingType } =
-        await import("expo-file-system/legacy");
+      const { readAsStringAsync, EncodingType } = await import(
+        "expo-file-system/legacy"
+      );
       imageData = await readAsStringAsync(imageUri, {
         encoding: EncodingType.Base64,
       });
@@ -93,15 +104,24 @@ export async function analyzeOutfitImage(imageUri: string): Promise<{
     
     Return as JSON with keys: description, colors (array), style, occasion (array)`;
 
-    const result = await model.generateContent([
+    const result = await retryWithBackoff(
+      () =>
+        model.generateContent([
+          {
+            inlineData: {
+              data: imageData,
+              mimeType: "image/jpeg",
+            },
+          },
+          prompt,
+        ]),
       {
-        inlineData: {
-          data: imageData,
-          mimeType: "image/jpeg",
-        },
+        onRetry: (attempt, delayMs) =>
+          console.warn(
+            `[Gemini] Vision rate-limited/unavailable, retry ${attempt} in ${Math.round(delayMs)}ms`,
+          ),
       },
-      prompt,
-    ]);
+    );
 
     const candidate = result.response.candidates?.[0];
     console.log("Finish reason:", candidate?.finishReason);
